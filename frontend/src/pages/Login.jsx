@@ -90,7 +90,7 @@ function Login({ onLoginSuccess }) {
           />
           
           <Typography component="h1" variant="h5">
-            Secretaria Web
+            SESI Garavelo
           </Typography>
           
           <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>

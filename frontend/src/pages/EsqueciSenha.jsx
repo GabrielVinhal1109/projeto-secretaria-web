@@ -1,5 +1,3 @@
-// Em: frontend/src/pages/EsqueciSenha.jsx (CÓDIGO COMPLETO)
-
 import React, { useState } from 'react';
 import axios from 'axios';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
