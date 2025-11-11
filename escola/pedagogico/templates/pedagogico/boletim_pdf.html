@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-R">
-    <title>Boletim Acadêmico</title>
+    <meta charset="UTF-8"> <title>Boletim Acadêmico</title>
     <style>
         /* Estilos CSS para o seu PDF */
         body {
@@ -88,7 +87,7 @@
                 <tbody>
                     {% for item in notas_disciplinas %}
                     <tr>
-                        <td>{{ item.disciplina__nome }}</td>
+                        <td>{{ item.disciplina__materia__nome }}</td>
                         <td>{{ item.media|floatformat:2 }}</td>
                     </tr>
                     {% endfor %}

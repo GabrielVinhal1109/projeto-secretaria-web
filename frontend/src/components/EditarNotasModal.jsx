@@ -1,4 +1,4 @@
-// Em: frontend/src/components/EditarNotasModal.jsx (MODIFICADO)
+// Em: frontend/src/components/EditarNotasModal.jsx (CORRIGIDO)
 
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
@@ -72,7 +72,7 @@ function EditarNotasModal({ open, onClose, alunoId, alunoNome, turmaId, turmaNom
     } finally {
       setLoading(false);
     }
-  }, [open, alunoId, turmaId]);
+  }, [open, alunoId, turmaId, token]); // <-- Adicionado 'token' à lista de dependências
 
   useEffect(() => {
     fetchData();
@@ -203,9 +203,13 @@ function EditarNotasModal({ open, onClose, alunoId, alunoNome, turmaId, turmaNom
                         {disciplina.materia_nome}
                       </Typography>
                       {/* --- ALTERADO --- */}
+                      
+                      {/* --- ESTA É A LINHA CORRIGIDA (Linha 207) --- */}
                       <Typography variant="caption" color="text.secondary">
-                        Profs: {disciplina.professores_nomes.join(', ') || 'N/A'}
+                        Profs: {disciplina.professores.map(p => p.first_name).join(', ') || 'N/A'}
                       </Typography>
+                      {/* --- FIM DA CORREÇÃO --- */}
+
                     </TableCell>
                     {bimestres.map(bimestre => {
                       const notaObj = (notas[disciplina.id] && notas[disciplina.id][bimestre]) 

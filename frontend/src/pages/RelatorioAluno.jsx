@@ -126,10 +126,46 @@ function RelatorioAluno() {
         fetchNotas();
     }, [fetchNotas]);
 
-    const handleDownloadPdf = () => {
+    // --- FUNÇÃO DE DOWNLOAD DO PDF CORRIGIDA ---
+    const handleDownloadPdf = async () => {
         const pdfUrl = `${backendUrl}/pedagogico/relatorio/aluno/${alunoId}/pdf/`;
-        window.open(pdfUrl, '_blank');
+        const token = localStorage.getItem('authToken');
+        
+        try {
+            // 1. Faz a requisição com Axios (que envia o token)
+            // e espera dados binários (blob)
+            const response = await axios.get(pdfUrl, {
+                headers: { 
+                    'Authorization': `Token ${token}`
+                },
+                responseType: 'blob' 
+            });
+
+            // 2. Cria um objeto de arquivo com os dados recebidos
+            const file = new Blob([response.data], { type: 'application/pdf' });
+            
+            // 3. Cria uma URL temporária para esse arquivo
+            const fileURL = URL.createObjectURL(file);
+            
+            // 4. Cria um link <a> invisível
+            const link = document.createElement('a');
+            link.href = fileURL;
+            link.setAttribute('download', `boletim_aluno_${alunoId}.pdf`); // Nome do arquivo
+            document.body.appendChild(link);
+            
+            // 5. "Clica" no link para iniciar o download
+            link.click();
+            
+            // 6. Limpa o link e a URL da memória
+            document.body.removeChild(link);
+            URL.revokeObjectURL(fileURL);
+
+        } catch (err) {
+            console.error("Erro ao baixar PDF:", err);
+            setError("Não foi possível baixar o PDF. Você tem permissão ou o servidor está offline?");
+        }
     };
+    // --- FIM DA CORREÇÃO ---
 
     const handleOpenModal = () => setIsModalOpen(true);
     const handleCloseModal = () => {

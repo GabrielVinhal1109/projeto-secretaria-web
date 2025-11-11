@@ -1,4 +1,5 @@
-# Em: escola/pedagogico/views.py
+# Em: escola/pedagogico/views.py (COM A TROCA PARA xhtml2pdf)
+
 import json
 import datetime
 from django.shortcuts import render, redirect, get_object_or_404
@@ -10,6 +11,11 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response 
+
+# --- IMPORTAÇÕES DE PDF ATUALIZADAS ---
+from io import BytesIO
+from xhtml2pdf import pisa
+# --- FIM DAS IMPORTAÇÕES DE PDF ---
 
 from .serializers import (
     NotaSerializer, EventoAcademicoSerializer, 
@@ -33,10 +39,7 @@ from .models import (
 )
 from escola.disciplinar.models import Advertencia, Suspensao
 
-try:
-    import weasyprint
-except ImportError:
-    weasyprint = None 
+# --- Bloco do WeasyPrint REMOVIDO ---
 
 # ===================================================================
 # VIEWSETS
@@ -50,7 +53,6 @@ class DisciplinaViewSet(viewsets.ModelViewSet):
     """
     serializer_class = DisciplinaSerializer
     
-    # --- CORREÇÃO APLICADA AQUI ---
     def get_queryset(self):
         user = self.request.user
         
@@ -58,7 +60,7 @@ class DisciplinaViewSet(viewsets.ModelViewSet):
         queryset = Disciplina.objects.all().order_by('materia__nome') 
 
         if not hasattr(user, 'cargo'):
-            return Disciplina.objects.none() # <-- CORRIGIDO (era Aluno)
+            return Disciplina.objects.none() 
 
         # Filtra por turma (para o modal de notas)
         turma_id = self.request.query_params.get('turma_id')
@@ -74,15 +76,14 @@ class DisciplinaViewSet(viewsets.ModelViewSet):
             if hasattr(user, 'aluno_profile'):
                 return queryset.filter(turma=user.aluno_profile.turma)
             else:
-                return Disciplina.objects.none() # <-- CORRIGIDO (era Aluno)
+                return Disciplina.objects.none() 
 
         # Admin/Coord vê tudo (respeitando o filtro de turma)
         admin_roles = ['administrador', 'coordenador', 'diretor', 'ti']
         if user.cargo in admin_roles or user.is_superuser:
             return queryset
             
-        return Disciplina.objects.none() # <-- CORRIGIDO (era Aluno)
-    # --- FIM DA CORREÇÃO ---
+        return Disciplina.objects.none() 
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -177,7 +178,7 @@ class NotaViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'bulk_update_notas']:
-            permission_classes = [permissions.IsAuthenticated, IsProfessor]
+            permission_classes = [permissions.IsAuthenticated, (IsProfessor | IsCoordenacao)]
         elif self.action in ['list', 'retrieve']:
             permission_classes = [permissions.IsAuthenticated]
         else:
@@ -214,7 +215,7 @@ class NotaViewSet(viewsets.ModelViewSet):
             
         return Nota.objects.none()
 
-    @action(detail=False, methods=['post'], permission_classes=[IsProfessor])
+    @action(detail=False, methods=['post'], permission_classes=[IsProfessor | IsCoordenacao])
     def bulk_update_notas(self, request):
         """
         Ação customizada para o professor salvar várias notas de uma vez.
@@ -225,22 +226,30 @@ class NotaViewSet(viewsets.ModelViewSet):
 
         resultados = []
         erros = []
+        
+        user_is_admin = (hasattr(request.user, 'cargo') and 
+                         request.user.cargo in ['administrador', 'coordenador', 'diretor', 'ti'])
 
         for nota_data in notas_data:
             nota_id = nota_data.get('id')
             valor = nota_data.get('valor')
             disciplina_id = nota_data.get('disciplina')
 
-            if not Disciplina.objects.filter(id=disciplina_id, professores=request.user).exists():
-                erros.append(f"ID {nota_id or 'novo'}: Você não tem permissão para esta disciplina.")
-                continue
+            if not user_is_admin:
+                if not Disciplina.objects.filter(id=disciplina_id, professores=request.user).exists():
+                    erros.append(f"ID {nota_id or 'novo'}: Você não tem permissão para esta disciplina.")
+                    continue
 
             if valor is None or valor == '': 
                 continue
 
             try:
                 if nota_id:
-                    nota = Nota.objects.get(id=nota_id, disciplina__professores=request.user)
+                    if user_is_admin:
+                         nota = Nota.objects.get(id=nota_id)
+                    else:
+                         nota = Nota.objects.get(id=nota_id, disciplina__professores=request.user)
+                         
                     serializer = NotaCreateUpdateSerializer(nota, data=nota_data, partial=True)
                 else:
                     serializer = NotaCreateUpdateSerializer(data=nota_data)
@@ -450,3 +459,66 @@ def planos_de_aula_professor(request):
         'disciplinas': disciplinas_data
     }
     return Response(context)
+
+# --- FUNÇÃO DO PDF ATUALIZADA PARA Xhtml2pdf ---
+@api_view(['GET'])
+@permission_classes([IsAuthenticated]) 
+def download_boletim_pdf(request, aluno_id):
+    """
+    Gera e baixa um PDF do boletim completo do aluno (usando xhtml2pdf).
+    """
+    aluno = get_object_or_404(Aluno, id=aluno_id)
+
+    # --- Lógica de permissão (permanece a mesma) ---
+    admin_roles = ['administrador', 'coordenador', 'diretor', 'ti']
+    user_cargo = getattr(request.user, 'cargo', None) 
+
+    if user_cargo == 'aluno':
+        if not (hasattr(request.user, 'aluno_profile') and request.user.aluno_profile.id == aluno.id):
+            return Response({'erro': 'Acesso negado. Alunos só podem ver o próprio relatório.'}, status=status.HTTP_403_FORBIDDEN)
+    elif user_cargo not in admin_roles and user_cargo != 'professor':
+         return Response({'erro': 'Você não tem permissão para ver este relatório.'}, status=status.HTTP_403_FORBIDDEN)
+    # --- Fim da permissão ---
+
+    # Busca os dados para o template (permanece o mesmo)
+    notas_disciplinas = Nota.objects.filter(aluno=aluno).values('disciplina__materia__nome').annotate(
+        media=Avg('valor')
+    ).order_by('disciplina__materia__nome')
+    
+    total_faltas = Falta.objects.filter(aluno=aluno).count()
+    advertencias = Advertencia.objects.filter(aluno=aluno).order_by('-data')
+    suspensoes = Suspensao.objects.filter(aluno=aluno).order_by('-data_inicio')
+
+    context = {
+        'aluno': aluno,
+        'notas_disciplinas': notas_disciplinas,
+        'total_faltas': total_faltas,
+        'advertencias': advertencias,
+        'suspensoes': suspensoes,
+    }
+
+    # Renderiza o template HTML (permanece o mesmo)
+    html_string = render_to_string(
+        'pedagogico/boletim_pdf.html', # Template que você já tem
+        context
+    )
+    
+    # --- NOVA LÓGICA DE GERAÇÃO DE PDF ---
+    # Cria um buffer de memória para o PDF
+    result = BytesIO()
+    
+    # Converte o HTML para PDF
+    pdf = pisa.CreatePDF(
+        html_string,                # o HTML renderizado
+        dest=result                 # o buffer de destino
+    )
+
+    # Se não houver erro na geração
+    if not pdf.err:
+        # Cria a resposta HTTP
+        response = HttpResponse(result.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="boletim_{aluno.usuario.username}.pdf"'
+        return response
+    
+    # Se houver um erro
+    return HttpResponse(f"Erro ao gerar o PDF: {pdf.err}", status=500)
