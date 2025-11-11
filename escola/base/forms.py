@@ -1,4 +1,4 @@
-# Em: escola/base/forms.py
+# Em: escola/base/forms.py (CORRIGIDO)
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm, AuthenticationForm
 from .models import Usuario
 
@@ -10,6 +10,22 @@ class CustomUserCreationForm(UserCreationForm):
         model = Usuario
         # Informa ao form para processar estes campos ADICIONAIS
         fields = UserCreationForm.Meta.fields + ('email', 'first_name', 'last_name', 'cargo')
+
+    def save(self, commit=True):
+        """
+        Salva o usuário com os campos customizados.
+        """
+        user = super().save(commit=False)
+        user.email = self.cleaned_data['email']
+        user.first_name = self.cleaned_data['first_name']
+        user.last_name = self.cleaned_data['last_name']
+        user.cargo = self.cleaned_data['cargo']
+        
+        if commit:
+            user.save()
+        return user
+    # --- FIM DA FUNÇÃO QUE FALTAVA ---
+
 
 class CustomUserChangeForm(UserChangeForm):
     """

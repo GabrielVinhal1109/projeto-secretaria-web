@@ -1,4 +1,4 @@
-// Em: frontend/src/pages/RelatoriosGerenciais.jsx
+// Em: frontend/src/pages/RelatoriosGerenciais.jsx (CORRIGIDO)
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
@@ -100,7 +100,9 @@ function RelatoriosGerenciais() {
                   {relatorioFaltas.map((item, index) => (
                     <TableRow key={index}>
                       <TableCell>{item.aluno__usuario__username}</TableCell>
-                      <TableCell>{item.disciplina__nome}</TableCell>
+                      {/* --- LINHA CORRIGIDA --- */}
+                      <TableCell>{item.disciplina__materia__nome}</TableCell>
+                      {/* --- FIM DA CORREÇÃO --- */}
                       <TableCell align="right">{item.total_faltas}</TableCell>
                     </TableRow>
                   ))}
