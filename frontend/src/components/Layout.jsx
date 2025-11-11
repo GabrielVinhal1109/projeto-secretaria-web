@@ -1,4 +1,4 @@
-// Em: frontend/src/components/Layout.jsx (COM A TROCA DE 'DASHBOARD' PARA 'HOME')
+// Em: frontend/src/components/Layout.jsx (MODIFICADO)
 
 import React, { useState } from 'react';
 import { Outlet, Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
@@ -24,7 +24,7 @@ import {
     Home as HomeIcon, // <-- MUDANÇA AQUI
     People, School, Class, CalendarToday, LibraryBooks,
     MeetingRoom, Category, Assessment, Assignment, Logout,
-    Report, Bookmarks // Bookmarks será usado para Reservas
+    Report, Bookmarks, AssignmentInd // <-- ADICIONADO AssignmentInd
 } from '@mui/icons-material';
 
 // --- CSS (Permanece o mesmo) ---
@@ -96,6 +96,13 @@ function Layout({ toggleTheme, onLogout }) {
       { label: 'Meus Empréstimos', path: '/biblioteca/meus-emprestimos', icon: <Bookmarks /> },
     ];
 
+    // --- INÍCIO DA NOVA SEÇÃO PARA RESPONSÁVEL ---
+    const responsavelLinks = [
+      { label: 'Portal do Responsável', path: '/portal-responsavel', icon: <AssignmentInd /> },
+      { label: 'Calendário Escolar', path: '/calendario', icon: <CalendarToday /> },
+    ];
+    // --- FIM DA NOVA SEÇÃO ---
+
     const adminRolesList = ['administrador', 'coordenador', 'diretor', 'ti'];
     if (adminRolesList.includes(role)) {
         return adminLinks;
@@ -106,6 +113,12 @@ function Layout({ toggleTheme, onLogout }) {
      if (role === 'aluno') {
         return alunoLinks;
     }
+    // --- LÓGICA ADICIONADA PARA RESPONSÁVEL ---
+    if (role === 'responsavel') {
+        return responsavelLinks;
+    }
+    // --- FIM DA LÓGICA ADICIONADA ---
+
     return [{ label: 'Home', path: '/dashboard', icon: <HomeIcon /> }]; // <-- MUDANÇA AQUI
   };
   

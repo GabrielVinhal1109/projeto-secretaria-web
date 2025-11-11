@@ -1,9 +1,10 @@
-# Em: escola/pedagogico/serializers.py
+# Em: escola/pedagogico/serializers.py (CORRIGIDO)
 from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
 from .models import (
     Aluno, Turma, Nota, Disciplina, 
-    EventoAcademico, PlanoDeAula, Materia, Falta, Presenca
+    EventoAcademico, PlanoDeAula, Materia, Falta, Presenca,
+    Notificacao, Responsavel # <-- ADICIONADO AQUI
 )
 from escola.base.models import Usuario
 from django.db.models import Avg 
@@ -194,3 +195,27 @@ class FaltaSerializer(serializers.ModelSerializer):
             'disciplina_nome', 'data', 'justificada'
         ]
         read_only_fields = ['aluno_nome', 'disciplina_nome']
+
+
+# --- CLASSES QUE FALTAVAM NO ARQUIVO ---
+
+class NotificacaoSerializer(serializers.ModelSerializer):
+    """
+    Serializer para o modelo Notificacao.
+    """
+    class Meta:
+        model = Notificacao
+        fields = ['id', 'mensagem', 'data_envio', 'lida']
+
+
+class ResponsavelSerializer(serializers.ModelSerializer):
+    """
+    Serializer para o Responsável, incluindo dados dos seus alunos.
+    """
+    # Usamos o AlunoSerializer que já existe para mostrar os alunos
+    alunos = AlunoSerializer(many=True, read_only=True)
+    usuario = UsuarioSerializer(read_only=True)
+
+    class Meta:
+        model = Responsavel
+        fields = ['id', 'usuario', 'alunos']

@@ -1,4 +1,4 @@
-# Em: escola/pedagogico/views.py (COM A TROCA PARA xhtml2pdf)
+# Em: escola/pedagogico/views.py (CORRIGIDO)
 
 import json
 import datetime
@@ -22,9 +22,10 @@ from .serializers import (
     AlunoSerializer, TurmaSerializer, AlunoCreateSerializer,
     PlanoDeAulaSerializer, DisciplinaSerializer,
     NotaCreateUpdateSerializer, MateriaSerializer,
-    FaltaSerializer
+    FaltaSerializer, NotificacaoSerializer,
+    ResponsavelSerializer
 )
-from escola.base.permissions import IsProfessor, IsAluno, IsCoordenacao 
+from escola.base.permissions import IsProfessor, IsAluno, IsCoordenacao, IsResponsavel
 
 from .models import (
     Aluno, 
@@ -35,7 +36,9 @@ from .models import (
     Disciplina,
     EventoAcademico, 
     PlanoDeAula,
-    Materia
+    Materia,
+    Notificacao, 
+    Responsavel
 )
 from escola.disciplinar.models import Advertencia, Suspensao
 
@@ -345,8 +348,18 @@ def relatorio_desempenho_aluno(request, aluno_id):
         if not (hasattr(request.user, 'aluno_profile') and request.user.aluno_profile.id == aluno.id):
             return Response({'erro': 'Acesso negado. Alunos só podem ver o próprio relatório.'}, status=status.HTTP_403_FORBIDDEN)
     
-    elif user_cargo not in admin_roles and user_cargo != 'professor':
+    # --- CORREÇÃO AQUI ---
+    # Permitir que Responsáveis também vejam o relatório
+    elif user_cargo not in admin_roles and user_cargo != 'professor' and user_cargo != 'responsavel':
          return Response({'erro': 'Você não tem permissão para ver este relatório.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    # --- (Bônus) Verificação de Responsável ---
+    # Se for um responsável, verifica se ele é responsável por ESTE aluno
+    if user_cargo == 'responsavel':
+        if not (hasattr(request.user, 'responsavel_profile') and 
+                request.user.responsavel_profile.alunos.filter(id=aluno.id).exists()):
+            return Response({'erro': 'Acesso negado. Você só pode ver relatórios de alunos pelos quais é responsável.'}, status=status.HTTP_403_FORBIDDEN)
+
 
     notas = Nota.objects.filter(aluno=aluno)
     faltas = Falta.objects.filter(aluno=aluno)
@@ -476,9 +489,18 @@ def download_boletim_pdf(request, aluno_id):
     if user_cargo == 'aluno':
         if not (hasattr(request.user, 'aluno_profile') and request.user.aluno_profile.id == aluno.id):
             return Response({'erro': 'Acesso negado. Alunos só podem ver o próprio relatório.'}, status=status.HTTP_403_FORBIDDEN)
-    elif user_cargo not in admin_roles and user_cargo != 'professor':
+    
+    # --- CORREÇÃO AQUI ---
+    # Permitir que Responsáveis também baixem o PDF
+    elif user_cargo not in admin_roles and user_cargo != 'professor' and user_cargo != 'responsavel':
          return Response({'erro': 'Você não tem permissão para ver este relatório.'}, status=status.HTTP_403_FORBIDDEN)
-    # --- Fim da permissão ---
+
+    # --- (Bônus) Verificação de Responsável ---
+    if user_cargo == 'responsavel':
+        if not (hasattr(request.user, 'responsavel_profile') and 
+                request.user.responsavel_profile.alunos.filter(id=aluno.id).exists()):
+            return Response({'erro': 'Acesso negado. Você só pode baixar relatórios de alunos pelos quais é responsável.'}, status=status.HTTP_403_FORBIDDEN)
+
 
     # Busca os dados para o template (permanece o mesmo)
     notas_disciplinas = Nota.objects.filter(aluno=aluno).values('disciplina__materia__nome').annotate(
@@ -522,3 +544,66 @@ def download_boletim_pdf(request, aluno_id):
     
     # Se houver um erro
     return HttpResponse(f"Erro ao gerar o PDF: {pdf.err}", status=500)
+
+# ... (outros ViewSets)
+
+class NotificacaoViewSet(viewsets.ModelViewSet):
+    """
+    API para Notificações.
+    Filtra automaticamente para mostrar apenas as do usuário logado.
+    """
+    serializer_class = NotificacaoSerializer
+    permission_classes = [IsAuthenticated] # Só precisa estar logado
+
+    def get_queryset(self):
+        # Retorna apenas as notificações para o usuário que fez a request
+        return Notificacao.objects.filter(destinatario=self.request.user).order_by('-data_envio')
+
+    @action(detail=True, methods=['post'])
+    def marcar_como_lida(self, request, pk=None):
+        """ Ação para marcar uma notificação como lida """
+        try:
+            notificacao = Notificacao.objects.get(pk=pk, destinatario=request.user)
+            notificacao.lida = True
+            notificacao.save()
+            return Response(NotificacaoSerializer(notificacao).data)
+        except Notificacao.DoesNotExist:
+            return Response({'erro': 'Notificação não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+# --- VIEWSET DO RESPONSÁVEL CORRIGIDA ---
+class ResponsavelViewSet(viewsets.ModelViewSet):
+    """
+    API para o Portal do Responsável.
+    """
+    queryset = Responsavel.objects.all()
+    serializer_class = ResponsavelSerializer
+    # 1. Permissão base: Apenas estar logado
+    permission_classes = [IsAuthenticated] 
+
+    # 2. Adicione este método para definir permissões por ação
+    def get_permissions(self):
+        # Ações de Admin (listar todos, criar, editar, deletar)
+        if self.action in ['list', 'create', 'update', 'partial_update', 'destroy']:
+            self.permission_classes = [IsCoordenacao]
+        # A ação 'me' usará a permissão do seu @action
+        elif self.action == 'me':
+            self.permission_classes = [IsResponsavel]
+        # Ação 'retrieve' (ver um por ID) só precisa estar logado
+        else:
+            self.permission_classes = [IsAuthenticated]
+            
+        return super().get_permissions()
+
+    @action(detail=False, methods=['get'], permission_classes=[IsResponsavel])
+    def me(self, request):
+        """
+        Endpoint especial (/api/responsaveis/me/)
+        Retorna o perfil do responsável logado e seus alunos vinculados.
+        """
+        try:
+            responsavel = request.user.responsavel_profile
+            serializer = self.get_serializer(responsavel)
+            return Response(serializer.data)
+        except Responsavel.DoesNotExist:
+            return Response({'erro': 'Este usuário não possui um perfil de responsável.'}, status=status.HTTP_404_NOT_FOUND)

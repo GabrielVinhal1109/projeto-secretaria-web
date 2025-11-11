@@ -10,6 +10,8 @@ router.register(r'disciplinas', views.DisciplinaViewSet, basename='disciplina')
 router.register(r'notas', views.NotaViewSet, basename='nota')
 router.register(r'materias', views.MateriaViewSet, basename='materia')
 router.register(r'faltas', views.FaltaViewSet, basename='falta')
+router.register(r'notificacoes', views.NotificacaoViewSet, basename='notificacao')
+router.register(r'responsaveis', views.ResponsavelViewSet, basename='responsavel') 
 
 
 urlpatterns = [

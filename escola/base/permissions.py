@@ -30,3 +30,10 @@ class IsCoordenacao(permissions.BasePermission):
         
         # Retorna True se o cargo do usuário estiver na lista
         return request.user.cargo in allowed_roles
+    
+class IsResponsavel(permissions.BasePermission):
+    """
+    Permissão customizada para permitir acesso apenas a Responsáveis.
+    """
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.cargo == 'responsavel'

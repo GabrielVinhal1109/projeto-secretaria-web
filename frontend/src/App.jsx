@@ -49,6 +49,9 @@ import LancarNotas from './pages/LancarNotas';
 // --- ADICIONEI AQUI A PÁGINA DE RESERVAS ---
 import Reservas from './pages/Reservas';
 
+// --- ADICIONAR IMPORTAÇÃO DO PORTAL DO RESPONSÁVEL ---
+import PortalResponsavel from './pages/PortalResponsavel'; 
+
 
 function App() {
   // ... (código do 'theme' e 'login' continua igual) ...
@@ -168,6 +171,9 @@ function App() {
 
             {/* --- ADICIONEI A ROTA DE RESERVAS AQUI --- */}
             <Route path="reservas" element={<Reservas />} />
+
+            {/* --- ADICIONAR ROTA DO PORTAL DO RESPONSÁVEL --- */}
+            <Route path="portal-responsavel" element={<PortalResponsavel />} />
 
           </Route>
 
