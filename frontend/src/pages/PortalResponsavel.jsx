@@ -38,11 +38,9 @@ function PortalResponsavel() {
       const headers = { 'Authorization': `Token ${token}` };
 
       try {
-        // 1. Busca os dados do responsável e seus filhos
         const responsavelRes = await axios.get(`${apiUrl}/responsaveis/me/`, { headers });
         setAlunos(responsavelRes.data.alunos || []);
 
-        // 2. Busca as notificações
         const notificacoesRes = await axios.get(`${apiUrl}/notificacoes/`, { headers });
         setNotificacoes(notificacoesRes.data || []);
 

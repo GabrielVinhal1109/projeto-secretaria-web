@@ -11,7 +11,8 @@ router.register(r'notas', views.NotaViewSet, basename='nota')
 router.register(r'materias', views.MateriaViewSet, basename='materia')
 router.register(r'faltas', views.FaltaViewSet, basename='falta')
 router.register(r'notificacoes', views.NotificacaoViewSet, basename='notificacao')
-router.register(r'responsaveis', views.ResponsavelViewSet, basename='responsavel') 
+router.register(r'responsaveis', views.ResponsavelViewSet, basename='responsavel')
+
 
 
 urlpatterns = [
@@ -22,9 +23,7 @@ urlpatterns = [
     path('relatorio/aluno/<int:aluno_id>/', views.relatorio_desempenho_aluno, name='relatorio_desempenho_aluno'),
     path('relatorio/aluno/<int:aluno_id>/pdf/', views.download_boletim_pdf, name='download_boletim_pdf'),
     path('relatorio/faltas/', views.relatorio_geral_faltas, name='relatorio_faltas'), 
-    path('relatorio/gerencial/', views.relatorio_gerencial, name='relatorio_gerencial'),
-    
-    # Agenda
+    path('relatorio/gerencial/', views.relatorio_gerencial, name='relatorio_gerencial'),    
     path('calendario/', views.calendario_academico, name='calendario_academico'),
     path('agenda/professor/', views.planos_de_aula_professor, name='agenda_professor'),
 ]
